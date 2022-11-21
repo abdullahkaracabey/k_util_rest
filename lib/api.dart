@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:k_util/models/app_error.dart';
+import 'package:flutter/foundation.dart';
+import 'package:k_util/k_util.dart';
 
 mixin Api {
   bool hasConnection = true;
   String get baseUrl;
+
+  BaseAuthManager get authManager;
 
   Future<Map<String, dynamic>> postRequest(String url, dynamic body) async {
     try {
@@ -53,34 +56,42 @@ mixin Api {
   // }
 
   Future<Map<String, dynamic>?> formDataRequest(String url, File file) async {
-    // try {
-    //   String fileName = file.path.split('/').last;
+    try {
+      String fileName = file.path.split('/').last;
 
-    //   var splittedFileName = fileName.split(".");
-    //   var extension = splittedFileName.length > 0 ? splittedFileName.last : "";
+      var splittedFileName = fileName.split(".");
+      var extension = splittedFileName.length > 0 ? splittedFileName.last : "";
 
-    //   FormData data = FormData.fromMap({
-    //     "image": await MultipartFile.fromFile(file.path,
-    //         filename: "${Uuid().v4()}.$extension",
-    //         contentType: MediaType("image", "png")),
-    //   });
-    //   debugPrint("form data: $data");
-    //   Dio dio = _getDio();
+      FormData data = FormData.fromMap({
+        "image": await MultipartFile.fromFile(file.path,
+            filename: "${Uuid().v4()}.$extension",
+            contentType: MediaType("image", "png")),
+      });
+      debugPrint("form data: $data");
+      Dio dio = _getDio();
 
-    //   dio.options.connectTimeout = 5000;
-    //   dio.options.receiveTimeout = 10000;
-    //   dio.options.sendTimeout = 10000;
+      dio.options.connectTimeout = 5000;
+      dio.options.receiveTimeout = 10000;
+      dio.options.sendTimeout = 10000;
 
-    //   var response = await dio.post("$_baseUrl/$url", data: data);
+      var currentUrl = "";
 
-    //   return _handledResponse(response);
-    // } catch (e) {
-    //   if (e is DioError) {
-    //     _handledResponse(e.response);
-    //   } else {
-    //     throw AppException(message: e.toString());
-    //   }
-    // }
+      if (url.startsWith("http") || url.startsWith("www")) {
+        currentUrl = url;
+      } else {
+        currentUrl = '$baseUrl/$url';
+      }
+
+      var response = await dio.post(currentUrl, data: data);
+
+      return _handledResponse(response);
+    } catch (e) {
+      if (e is DioError && e.response != null) {
+        _handledResponse(e.response!);
+      } else {
+        throw AppException(message: e.toString());
+      }
+    }
   }
 
   Future<dynamic> getRequest(String url,
@@ -105,10 +116,12 @@ mixin Api {
       return _handledResponse(response);
     } catch (e) {
       if (e is DioError) {
-        _handledResponse(e.response!);
-      } else {
-        throw AppException(message: e.toString());
+        if (e.response != null) {
+          _handledResponse(e.response!);
+          return;
+        }
       }
+      throw AppException(message: e.toString());
     }
   }
 
@@ -129,21 +142,23 @@ mixin Api {
     throw AppException.kUnknownError;
   }
 
+  download({required String url, required String savePath}) async {
+    await _getDio().download(url, savePath);
+  }
+
   Dio _getDio() {
     var dio = Dio();
     // dio.options.connectTimeout = 5000;
     // dio.options.receiveTimeout = 10000;
     // dio.options.sendTimeout = 10000;
+    var token = authManager.authToken;
+    if (token != null) {
+      dio.options.headers[HttpHeaders.authorizationHeader] = "Bearer $token";
 
-    // var user = store.state.user;
-    // if (user != null && user.token != null) {
-    //   dio.options.headers[HttpHeaders.authorizationHeader] =
-    //       "Bearer ${user.token}";
-
-    //   debugPrint("Token: ${user.token}");
-    // } else {
-    //   debugPrint("Token not exist");
-    // }
+      debugPrint("Token: $token");
+    } else {
+      debugPrint("Token not exist");
+    }
 
     return dio;
   }
