@@ -9,6 +9,8 @@ mixin Api {
 
   BaseAuthManager get authManager;
 
+  VoidCallback? unAuthorizedCallback;
+
   Future<Map<String, dynamic>> postRequest(String url, dynamic body) async {
     try {
       var currentUrl = "";
@@ -129,7 +131,15 @@ mixin Api {
     if (response.statusCode! / 100 == 2) {
       return response.data;
     } else if (response.statusCode == 401) {
-      throw AppException.kUnAuthorized;
+      if (unAuthorizedCallback != null) {
+        unAuthorizedCallback!();
+      } else {
+        if (response.data["message"] != null) {
+          throw AppException(
+              code: response.statusCode, message: response.data["message"]);
+        }
+        throw AppException.kUnAuthorized;
+      }
     } else if (response.statusCode == 500) {
       throw AppException.kUnknownError;
     } else if (response.statusCode != null &&
