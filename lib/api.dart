@@ -5,7 +5,10 @@ import 'package:k_util/k_util.dart';
 
 mixin Api {
   bool hasConnection = true;
+  late String _baseUrl;
+
   String get baseUrl;
+  set baseUrl(url) => _baseUrl = url;
 
   BaseAuthManager get authManager;
 
