@@ -1,20 +1,21 @@
 name: k_util_rest
 description: A new Flutter package project.
 version: 0.0.1
-homepage:
 publish_to: none
 
 environment:
-  sdk: '>=2.18.1 <3.0.0'
+  sdk: '>=3.1.3 <4.0.0'
   flutter: ">=1.17.0"
 
 dependencies:
   flutter:
     sdk: flutter
   k_util:
-    git:
-      url: https://github.com/abdullahkaracabey/k_util.git
-  dio: ^4.0.6
+    path: "/Users/abdullah/Works/Personal/Flutter/k_util"
+    # git:
+    #   url: https://github.com/abdullahkaracabey/k_util.git
+  
+  dio: ^5.3.3
 
 dev_dependencies:
   flutter_test:
