@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:k_util/k_util.dart';
@@ -10,11 +11,12 @@ mixin Api {
   String get baseUrl;
   set baseUrl(url) => _baseUrl = url;
 
-  BaseAuthManager get authManager;
+  BaseAuthManager? get authManager;
 
   VoidCallback? unAuthorizedCallback;
 
-  Future<Map<String, dynamic>> postRequest(String url, dynamic body) async {
+  Future<dynamic> postRequest(String url, dynamic body,
+      {Map<String, dynamic>? headers}) async {
     try {
       var currentUrl = "";
 
@@ -28,6 +30,10 @@ mixin Api {
 
       dio.options.headers[HttpHeaders.contentTypeHeader] =
           "application/x-www-form-urlencoded";
+
+      if (headers != null) {
+        dio.options.headers.addAll(headers);
+      }
 
       var response = await dio.post(currentUrl, data: body);
 
@@ -65,19 +71,19 @@ mixin Api {
       String fileName = file.path.split('/').last;
 
       var splittedFileName = fileName.split(".");
-      var extension = splittedFileName.length > 0 ? splittedFileName.last : "";
+      var extension = splittedFileName.isNotEmpty ? splittedFileName.last : "";
 
       FormData data = FormData.fromMap({
         "image": await MultipartFile.fromFile(file.path,
-            filename: "${Uuid().v4()}.$extension",
+            filename: "${const Uuid().v4()}.$extension",
             contentType: MediaType("image", "png")),
       });
       debugPrint("form data: $data");
       Dio dio = _getDio();
 
-      dio.options.connectTimeout = 5000;
-      dio.options.receiveTimeout = 10000;
-      dio.options.sendTimeout = 10000;
+      dio.options.connectTimeout = const Duration(seconds: 5);
+      dio.options.receiveTimeout = const Duration(seconds: 10);
+      dio.options.sendTimeout = const Duration(seconds: 10);
 
       var currentUrl = "";
 
@@ -91,16 +97,34 @@ mixin Api {
 
       return _handledResponse(response);
     } catch (e) {
-      if (e is DioError && e.response != null) {
-        _handledResponse(e.response!);
-      } else {
-        throw AppException(message: e.toString());
+      if (e is DioError) {
+        if (e.response != null) {
+          _handledResponse(e.response!);
+        } else {
+          int errorCode;
+
+          switch (e.type) {
+            case DioExceptionType.receiveTimeout:
+            case DioExceptionType.sendTimeout:
+              errorCode = AppException.kRemoteAddressNotReached;
+              break;
+            default:
+              errorCode = AppException.kUnknownError;
+          }
+
+          throw AppException(message: e.toString(), code: errorCode);
+        }
+
+        throw AppException(
+            message: e.toString(), code: AppException.kUnknownError);
       }
     }
+    return null;
   }
 
   Future<dynamic> getRequest(String url,
-      {Map<String, dynamic>? headers}) async {
+      {Map<String, dynamic>? headers,
+      Map<String, dynamic>? queryParameters}) async {
     try {
       var currentUrl = "";
 
@@ -113,10 +137,11 @@ mixin Api {
       var dio = _getDio();
 
       if (headers != null) {
-        dio.options.headers = headers;
+        dio.options.headers.addAll(headers);
       }
 
-      var response = await dio.get(currentUrl);
+      var response =
+          await dio.get(currentUrl, queryParameters: queryParameters);
 
       return _handledResponse(response);
     } catch (e) {
@@ -126,12 +151,13 @@ mixin Api {
           return;
         }
       }
-      throw AppException(message: e.toString());
+      throw AppException(
+          message: e.toString(), code: AppException.kUnknownError);
     }
   }
 
   dynamic _handledResponse(Response response) {
-    if (response.statusCode! / 100 == 2) {
+    if (response.statusCode! ~/ 100 == 2) {
       return response.data;
     } else if (response.statusCode == 401) {
       if (unAuthorizedCallback != null) {
@@ -141,10 +167,10 @@ mixin Api {
           throw AppException(
               code: response.statusCode, message: response.data["message"]);
         }
-        throw AppException.kUnAuthorized;
+        throw AppException.unAuthorized;
       }
     } else if (response.statusCode == 500) {
-      throw AppException.kUnknownError;
+      throw AppException.unknownError;
     } else if (response.statusCode != null &&
         response.data["message"] != null) {
       var code = response.statusCode;
@@ -152,7 +178,7 @@ mixin Api {
       throw AppException(code: code, message: message);
     }
 
-    throw AppException.kUnknownError;
+    throw AppException.unknownError;
   }
 
   download({required String url, required String savePath}) async {
@@ -161,10 +187,10 @@ mixin Api {
 
   Dio _getDio() {
     var dio = Dio();
-    // dio.options.connectTimeout = 5000;
-    // dio.options.receiveTimeout = 10000;
-    // dio.options.sendTimeout = 10000;
-    var token = authManager.authToken;
+    dio.options.connectTimeout = const Duration(seconds: 5);
+    dio.options.receiveTimeout = const Duration(seconds: 10);
+    dio.options.sendTimeout = const Duration(seconds: 10);
+    var token = authManager?.authToken;
     if (token != null) {
       dio.options.headers[HttpHeaders.authorizationHeader] = "Bearer $token";
 
