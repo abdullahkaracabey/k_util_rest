@@ -11,9 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   k_util:
-    path: "/Users/abdullah/Works/Personal/Flutter/k_util"
-    # git:
-    #   url: https://github.com/abdullahkaracabey/k_util.git
+    git:
+      url: https://github.com/abdullahkaracabey/k_util.git
   
   dio: ^5.3.3
 

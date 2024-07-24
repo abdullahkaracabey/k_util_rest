@@ -1,4 +1,5 @@
 library k_util_rest;
 
-export 'package:k_util/k_util.dart';
+export 'package:dio/dio.dart';
+
 export 'api.dart';
