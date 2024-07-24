@@ -39,13 +39,7 @@ mixin Api {
 
       return _handledResponse(response);
     } catch (e) {
-      if (e is DioError) {
-        _handledResponse(e.response!);
-      } else if (e is AppException) {
-        rethrow;
-      }
-
-      throw AppException.kUnknownError;
+      _throwError(e);
     }
   }
 
@@ -97,27 +91,7 @@ mixin Api {
 
       return _handledResponse(response);
     } catch (e) {
-      if (e is DioError) {
-        if (e.response != null) {
-          _handledResponse(e.response!);
-        } else {
-          int errorCode;
-
-          switch (e.type) {
-            case DioExceptionType.receiveTimeout:
-            case DioExceptionType.sendTimeout:
-              errorCode = AppException.kRemoteAddressNotReached;
-              break;
-            default:
-              errorCode = AppException.kUnknownError;
-          }
-
-          throw AppException(message: e.toString(), code: errorCode);
-        }
-
-        throw AppException(
-            message: e.toString(), code: AppException.kUnknownError);
-      }
+      _throwError(e);
     }
     return null;
   }
@@ -145,18 +119,16 @@ mixin Api {
 
       return _handledResponse(response);
     } catch (e) {
-      if (e is DioError) {
-        if (e.response != null) {
-          _handledResponse(e.response!);
-          return;
-        }
-      }
-      throw AppException(
-          message: e.toString(), code: AppException.kUnknownError);
+      _throwError(e);
     }
   }
 
-  dynamic _handledResponse(Response response) {
+  dynamic _handledResponse(Response? response, {String place = "service"}) {
+    if (response == null) {
+      throw const AppException(
+          message: "Sunucudan cevap alınamadı.",
+          code: AppException.kUnPermitted);
+    }
     if (response.statusCode! ~/ 100 == 2) {
       return response.data;
     } else if (response.statusCode == 401) {
@@ -200,5 +172,29 @@ mixin Api {
     }
 
     return dio;
+  }
+
+  void _throwError(Object e) {
+    if (e is DioException) {
+      if (e.response != null) {
+        _handledResponse(e.response!, place: "error");
+      } else {
+        int errorCode;
+
+        switch (e.type) {
+          case DioExceptionType.receiveTimeout:
+          case DioExceptionType.sendTimeout:
+            errorCode = AppException.kRemoteAddressNotReached;
+            break;
+          default:
+            errorCode = AppException.kUnknownError;
+        }
+
+        throw AppException(message: e.toString(), code: errorCode);
+      }
+    } else {
+      throw AppException(
+          message: e.toString(), code: AppException.kUnknownError);
+    }
   }
 }
